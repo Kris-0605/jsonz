@@ -323,7 +323,7 @@ def from_ri(byte_stream):
 
 1. Let the integer you would like to convert be $i$.
 2. If the value is 0, then the resizing integer is a single byte with the value 0.
-3. Iterate through the sequence $x=2^{8n}$, starting with n=1. For each value in the sequence, if $i<x$, then return x as the "size".
+3. Iterate through the sequence $x=2^{8n}$, starting with n=1. For each value in the sequence, if $i \lt x$, then return x as the "size".
 4. Write the "size" as an unsigned 8-bit integer.
 5. Write the integer using the "size" number of bytes in unsigned little-endian form.
 
