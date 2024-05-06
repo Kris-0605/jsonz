@@ -121,71 +121,77 @@ All other types of objects are stored immediately after (or within) the data typ
 
 JSON supports the following data types: string, number, object, array, boolean, null. The data types JSONZ can use to store data are shown in the table below.
 
-| JSONZ data type                                             | Data type byte value |
-| ------------------------------------------------------------| -------------------- |
-| [boolean true](#booleans-and-null)                          | 1                    |
-| [boolean false](#booleans-and-null)                         | 2                    |
-| [null](#booleans-and-null)                                  | 3                    |
-| [string](#strings)                                          | 4                    |
-| [resizing integer](#a-note-on-integers)                     | 5                    |
-| [negative resizing integer](#a-note-on-integers)            | 6                    |
-| [unsigned 8-bit defined integer](#a-note-on-integers)       | 7                    |
-| [unsigned 16-bit defined integer](#a-note-on-integers)      | 8                    |
-| [unsigned 24-bit defined integer](#a-note-on-integers)      | 9                    |
-| [unsigned 32-bit defined integer](#a-note-on-integers)      | 10                   |
-| [unsigned 64-bit defined integer](#a-note-on-integers)      | 11                   |
-| [negative 8-bit defined integer](#a-note-on-integers)       | 12                   |
-| [negative 16-bit defined integer](#a-note-on-integers)      | 13                   |
-| [negative 24-bit defined integer](#a-note-on-integers)      | 14                   |
-| [negative 32-bit defined integer](#a-note-on-integers)      | 15                   |
-| [negative 64-bit defined integer](#a-note-on-integers)      | 16                   |
-| [signed 8-bit defined integer](#a-note-on-integers)         | 17                   |
-| [signed 32-bit defined integer](#a-note-on-integers)        | 18                   |
-| [signed 64-bit defined integer](#a-note-on-integers)        | 19                   |
-| [big integer](#big-integers)                                | 20                   |
-| [negative big integer](#a-note-on-integers)                 | 21                   |
-| [decimal](#decimals)                                        | 22                   |
-| [object](#objects)                                          | 23                   |
-| [bytes*](#bytes)                                            | 24                   |
-| [multi-type array](#multi-type-arrays)                      | 25                   |
-| [boolean array](#boolean-array)                             | 26                   |
-| [null array](#null-array)                                   | 27                   |
-| [string array](#string-array)                               | 28                   |
-| [resizing integer array](#resizing-integer-array)           | 29                   |
-| [negative resizing integer array](#resizing-integer-array)  | 30                   |
-| [unsigned 8-bit integer array](#defined-integer-array)      | 31                   |
-| [unsigned 16-bit integer array](#defined-integer-array)     | 32                   |
-| [unsigned 24-bit integer array](#defined-integer-array)     | 33                   |
-| [unsigned 32-bit integer array](#defined-integer-array)     | 34                   |
-| [unsigned 64-bit integer array](#defined-integer-array)     | 35                   |
-| [negative 8-bit integer array](#defined-integer-array)      | 36                   |
-| [negative 16-bit integer array](#defined-integer-array)     | 37                   |
-| [negative 24-bit integer array](#defined-integer-array)     | 38                   |
-| [negative 32-bit integer array](#defined-integer-array)     | 39                   |
-| [negative 64-bit integer array](#defined-integer-array)     | 40                   |
-| [signed 8-bit integer array](#defined-integer-array)        | 41                   |
-| [signed 32-bit integer array](#defined-integer-array)       | 42                   |
-| [signed 64-bit integer array](#defined-integer-array)       | 43                   |
-| [big integer array](#big-integer-array)                     | 44                   |
-| [negative big integer array](#big-integer-array)            | 45                   |
-| [decimal array](#decimal-array)                             | 46                   |
-| [object array](#object-array)                               | 47                   |
-| [bytes* array](#bytes-array)                                | 48                   |
-| [singular compressed string**](#singular-compressed-string) | 255                  |
+| JSONZ data type                                                        | Data type byte value |
+| ---------------------------------------------------------------------- | -------------------- |
+| [boolean true](#booleans-null-nan-infinity-and-negative-infinity)      | 1                    |
+| [boolean false](#booleans-null-nan-infinity-and-negative-infinity)     | 2                    |
+| [null](#booleans-null-nan-infinity-and-negative-infinity)              | 3                    |
+| [string](#strings)                                                     | 4                    |
+| [resizing integer](#a-note-on-integers)                                | 5                    |
+| [negative resizing integer](#a-note-on-integers)                       | 6                    |
+| [unsigned 8-bit defined integer](#a-note-on-integers)                  | 7                    |
+| [unsigned 16-bit defined integer](#a-note-on-integers)                 | 8                    |
+| [unsigned 24-bit defined integer](#a-note-on-integers)                 | 9                    |
+| [unsigned 32-bit defined integer](#a-note-on-integers)                 | 10                   |
+| [unsigned 64-bit defined integer](#a-note-on-integers)                 | 11                   |
+| [negative 8-bit defined integer](#a-note-on-integers)                  | 12                   |
+| [negative 16-bit defined integer](#a-note-on-integers)                 | 13                   |
+| [negative 24-bit defined integer](#a-note-on-integers)                 | 14                   |
+| [negative 32-bit defined integer](#a-note-on-integers)                 | 15                   |
+| [negative 64-bit defined integer](#a-note-on-integers)                 | 16                   |
+| [signed 8-bit defined integer](#a-note-on-integers)                    | 17                   |
+| [signed 32-bit defined integer](#a-note-on-integers)                   | 18                   |
+| [signed 64-bit defined integer](#a-note-on-integers)                   | 19                   |
+| [big integer](#big-integers)                                           | 20                   |
+| [negative big integer](#a-note-on-integers)                            | 21                   |
+| [decimal](#decimals)                                                   | 22                   |
+| [object](#objects)                                                     | 23                   |
+| [bytes*](#bytes)                                                       | 24                   |
+| [multi-type array](#multi-type-arrays)                                 | 25                   |
+| [boolean array](#boolean-array)                                        | 26                   |
+| [null array](#null-array)                                              | 27                   |
+| [string array](#string-array)                                          | 28                   |
+| [resizing integer array](#resizing-integer-array)                      | 29                   |
+| [negative resizing integer array](#resizing-integer-array)             | 30                   |
+| [unsigned 8-bit integer array](#defined-integer-array)                 | 31                   |
+| [unsigned 16-bit integer array](#defined-integer-array)                | 32                   |
+| [unsigned 24-bit integer array](#defined-integer-array)                | 33                   |
+| [unsigned 32-bit integer array](#defined-integer-array)                | 34                   |
+| [unsigned 64-bit integer array](#defined-integer-array)                | 35                   |
+| [negative 8-bit integer array](#defined-integer-array)                 | 36                   |
+| [negative 16-bit integer array](#defined-integer-array)                | 37                   |
+| [negative 24-bit integer array](#defined-integer-array)                | 38                   |
+| [negative 32-bit integer array](#defined-integer-array)                | 39                   |
+| [negative 64-bit integer array](#defined-integer-array)                | 40                   |
+| [signed 8-bit integer array](#defined-integer-array)                   | 41                   |
+| [signed 32-bit integer array](#defined-integer-array)                  | 42                   |
+| [signed 64-bit integer array](#defined-integer-array)                  | 43                   |
+| [big integer array](#big-integer-array)                                | 44                   |
+| [negative big integer array](#big-integer-array)                       | 45                   |
+| [decimal array](#decimal-array)                                        | 46                   |
+| [object array](#object-array)                                          | 47                   |
+| [bytes* array](#bytes-array)                                           | 48                   |
+| [NaN](#booleans-null-nan-infinity-and-negative-infinity)               | 49                   |
+| [infinity](#booleans-null-nan-infinity-and-negative-infinity)          | 50                   |
+| [negative infinity](#booleans-null-nan-infinity-and-negative-infinity) | 51                   |
+| [singular compressed string**](#singular-compressed-string)            | 255                  |
 
 *JSONZ can optionally support bytes. Bytes cannot be parsed into JSON and should be stored using the appropriate object within the language your implementation uses. Bytes functionality should be disabled by default, as trying to convert a JSONZ file containing bytes into a JSON file will result in an error.
 
 **Only to be used in the context where a string is a root object. Should be rejected if used in a normal keymap.
 
-**The data type of a key is stored as an 8-bit unsigned integer with a pre-defined code**. The existence of only 49 data types out of a possible 255 makes it very easy for someone to create their own custom data types within an implementation of JSONZ, and I'd recommend making it trivial to do this in your implementation.
+**The data type of a key is stored as an 8-bit unsigned integer with a pre-defined code**. The existence of only 52 data types out of a possible 255 makes it very easy for someone to create their own custom data types within an implementation of JSONZ, and I'd recommend making it trivial to do this in your implementation.
 
-### Booleans and null
+### Booleans, null, NaN, infinity and negative infinity
 
 **The value is implied from the data type itself**.
 
 - If the data type is "boolean true", then the value is true.
 - If the data type is "boolean false", then the value is false.
 - If the data type is "null", then the value is null.
+- If the data type is NaN, then the value is NaN.
+- If the data type is infinity, then the value is infinity.
+- If the data type is negative infinity, then the value is negative infinity.
 
 ### Strings
 
@@ -387,9 +393,9 @@ def to_ri(i):
 
 First, determine the JSON data type, then follow the relevant instructions.
 
-#### Booleans and null
+#### Booleans, null, NaN, infinity and negative infinity
 
-The data type store the value. So, for true use [boolean true](#booleans-and-null), false use [boolean false](#booleans-and-null) and null use [null](#booleans-and-null).
+The data type stores the value. So, for true use [boolean true](#booleans-null-nan-infinity-and-negative-infinity), false use [boolean false](#booleans-null-nan-infinity-and-negative-infinity), null use [null](#booleans-null-nan-infinity-and-negative-infinity), NaN use [NaN](#booleans-null-nan-infinity-and-negative-infinity), infinity use [infinity](#booleans-null-nan-infinity-and-negative-infinity) and negative infinity use [negative infinity](#booleans-null-nan-infinity-and-negative-infinity).
 
 #### String
 
@@ -406,7 +412,7 @@ If the number is an integer, let $x$ be the integer. Use the table below to find
 | $0 \leq x \leq$ 255                                  | $0 \leq x \leq 2^8-1$                       | [unsigned 8-bit defined integer](#a-note-on-integers)   | [negative 8-bit defined integer](#a-note-on-integers)  |
 | $256 \leq x \leq 65535$                              | $2^8 \leq x \leq 2^{16}-1$                  | [unsigned 16-bit defined integer](#a-note-on-integers)  | [negative 16-bit defined integer](#a-note-on-integers) |
 | $65536 \leq x \leq 16777215$                         | $2^{16} \leq x \leq 2^{24}-1$               | [unsigned 24-bit defined integer](#a-note-on-integers)  | [negative 24-bit defined integer](#a-note-on-integers) |
-| $16777216 \leq x \leq 4294967295$                       | $2^{24} \leq x \leq 2^{32}-1$               | [unsigned 32-bit integer array](#defined-integer-array) | [negative 32-bit defined integer](#a-note-on-integers) |
+| $16777216 \leq x \leq 4294967295$                    | $2^{24} \leq x \leq 2^{32}-1$               | [unsigned 32-bit defined integer](#a-note-on-integers)  | [negative 32-bit defined integer](#a-note-on-integers) |
 | $4294967296 \leq x \leq 72057594037927935$           | $2^{32} \leq x \leq 2^{56-1}$               | [resizing integer](#a-note-on-integers)                 | [negative resizing integer](#a-note-on-integers)       |
 | $72057594037927936 \leq x \leq 18446744073709551615$ | $2^{56} \leq x \leq  2^{64}-1$              | [unsigned 64-bit defined integer](#a-note-on-integers)  | [negative 64-bit defined integer](#a-note-on-integers) |
 | $18446744073709551616 \leq x \leq 2^{2040}-1$        | $2^{64}+1 \leq x \leq 2^{2040}-1$           | [resizing integer](#a-note-on-integers)                 | [negative resizing integer](#a-note-on-integers)       |
