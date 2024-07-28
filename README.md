@@ -50,6 +50,7 @@ Contains essential data for reading the file. It will always be structured as fo
 - **1 byte, indicating the data type of the root object**. JSON files typically store other objects, or sometimes arrays. However, JSON allows any data type to be stored without a key associated with it. This low level value without a key is from here on referred to as the root object.
 - - **If the data type is an object, then the rest of this document applies**.
 - - If the data type is any other type, see [Other data types as the root object](#other-data-types-as-the-root-object)
+- **1 byte, an unsigned 8-bit integer, indicating the mode of operation for the string map**.
 - **A 64-bit unsigned integer - the number of strings that are used as keys**.
 - **A 64-bit unsigned integer - the size of the string data in bytes**.
 - **A 64-bit unsigned integer - the size of the string map in bytes**.
@@ -66,6 +67,7 @@ A JZS file is structured as follows:
 
 - **File metadata**:
 - - An 8-bit unsigned integer indicating the version number (1)
+- - An unsigned 8-bit integer, indicating the mode of operation for the string map
 - - A 64-bit unsigned integer indicating how many strings the JZS file contains
 - - A 64-bit unsigned integer indicating the number of strings that are used as keys
 - - A 64-bit unsigned integer indicating the length of the string data in bytes
@@ -76,22 +78,33 @@ How to load and use a JZS file will be covered in the [String map](#string-map) 
 
 ### String map
 
-A string map is made up of **integers representing the size of a string in bytes**.
+A string map gives you the necessary information and structure to read string data, by providing the positions at which different strings start and their length.
 
-We will use **resizing integers** for this. However, we additionally want to store whether the data is compressed or not. We can store this using **signed resizing integers** (resizing integers that use a signed integer to store its value): **a negative size indicates that the data is raw and uncompressed, and a positive size indicates that the data is Brotli compressed**.
+The string map in version 1 has **two operational modes**: one optimised for higher read speed, and one optimised for better compression and compatibility.
 
-When reading these size values, you should read until the end of the string map - the size of the string map is given in bytes in the file metadata.
+**If the value for the mode of operation byte is 0, then use:**
 
-When reading these size values, the **sizes refer to string IDs sequentially**: the first size refers string ID 1, the second to string ID 2, etc. The exception to this rule is when one or more JZS files are being used. When a JZS file is loaded, its strings are loaded into the first available string ID slots. Each JZS file fills these slots sequentially, and when the files are exhausted, then the next available string ID slots are used for the string data inside the JSONZ file itself (assuming it has any: the string map can be skipped completely if a byte size of 0 is specified in the file metadata).
+#### Compressed mode
 
-In order to load a JZS file, you should first check that the MD5 hash of the entire JZS file matches an MD5 hash in the file metadata. JZS files should be read in the order that the MD5 hashes are written. (An implementation may allow you to manually override this rule, to prevent the need to update millions of hashes across millions of files, but it is then your responsibility to store which JZS files are required and in which order).
+The string map is made up of **integers representing the size of a string in bytes**.
 
-Unfortunately, the string map system could enable a denial-of-service attack if your application parses user-generated JSONZ files. A malicious user could create an extremely large string map filled with arbitrary data, since the string map can define pointers for string IDs that doesn't exist, and force your server to parse it. There are a couple of ways you can mitigate this:
+We will use **signed resizing integers** for this, where the absolute value of this integer is the size of the string's data in bytes. **A negative value indicates a Brotli compressed string, and a positive value indicates the string is raw and uncompressed UTF-8**.
 
-1. **Set a limit on the size of string maps.** Remember that a string map does not store the data for the strings, so a large string map should considered suspicious. An example limit would be 10MB: this can store 5 million small strings, and the resizing integers alone would take a Python implementation 5-10 seconds to parse.
-2. **Do not parse the entire string map.** Instead, parse when necessary. Parsing the string map is O(n): if you want to access the nth string, you need to parse the map for string IDs 1 through n to retreive the string's location (location caching is recommended).
+**Each value refers to a string ID sequentially, starting from 0.** Let's say the function $\text{SM0}(x)$ returns the value for the string ID $x$ in the map. To get the data for the third string, you'd read the $\text{SM0}(2)$ bytes at the position in the file given by $\text{SM0}(0) + \text{SM0}(1) + \text{SM0}(2) + \text{size of file metadata}$.
 
-**All keys that are used as strings should be parsed and stored - these must be at the start of the string map, and the quantity is specified in the file metadata**.
+**String IDs start at 0**. But, if any JZS string files have been loaded, they take priority. Once all JZS files have been exhausted, you should start assigning IDs sequentially after that.
+
+For security reasons, it's recommended that you **set a cap on the size of a compressed string map**, as a user could submit a large string map and request a very large string ID, causing your application to be stuck in a parsing state for a unacceptable amount of time. Additionally, **it is important that you respect the size of the string map** given in the file metadata.
+
+**If the value for the mode of operation byte is 1, then use:**
+
+#### Uncompressed mode
+
+Each string in the string map is stored using two integers. The first is a **signed 64-bit integer storing the size of the string's data in bytes. A negative value indicates a Brotli compressed string, and a positive value indicates the string is raw and uncompressed UTF-8**. The second is an **unsigned 64-bit integer representing the position of the value in the file relative to the start of the string data.**
+
+To use the example from before, to get the third string, you'd read $\text{SM1Size}(2)$ bytes at the position in the file given by $\text{SM1Pos}(2) + \text{size of file metadata}$.
+
+This format makes it easier to read strings, especially those further into the map. Additionally, this format solves the security implications of dealing with large string maps, because string IDs can be seeked to immediately ($16\text{ bytes }\times\text{ string ID }+\text{ start of string map}$). However, it does introduce a limitation on both the maximum size of strings and the maximum size of the file. It is also still imoprtant to **respect the size of the string map** given in the file metadata.
 
 ### Other data types as the root object
 
@@ -151,36 +164,37 @@ JSON supports the following data types: string, number, object, array, boolean, 
 | [boolean array](#boolean-array)                                        | 26                   |
 | [null array](#null-array)                                              | 27                   |
 | [string array](#string-array)                                          | 28                   |
-| [resizing integer array](#resizing-integer-array)                      | 29                   |
-| [negative resizing integer array](#resizing-integer-array)             | 30                   |
-| [unsigned 8-bit integer array](#defined-integer-array)                 | 31                   |
-| [unsigned 16-bit integer array](#defined-integer-array)                | 32                   |
-| [unsigned 24-bit integer array](#defined-integer-array)                | 33                   |
-| [unsigned 32-bit integer array](#defined-integer-array)                | 34                   |
-| [unsigned 64-bit integer array](#defined-integer-array)                | 35                   |
-| [negative 8-bit integer array](#defined-integer-array)                 | 36                   |
-| [negative 16-bit integer array](#defined-integer-array)                | 37                   |
-| [negative 24-bit integer array](#defined-integer-array)                | 38                   |
-| [negative 32-bit integer array](#defined-integer-array)                | 39                   |
-| [negative 64-bit integer array](#defined-integer-array)                | 40                   |
-| [signed 8-bit integer array](#defined-integer-array)                   | 41                   |
-| [signed 32-bit integer array](#defined-integer-array)                  | 42                   |
-| [signed 64-bit integer array](#defined-integer-array)                  | 43                   |
-| [big integer array](#big-integer-array)                                | 44                   |
-| [negative big integer array](#big-integer-array)                       | 45                   |
-| [decimal array](#decimal-array)                                        | 46                   |
-| [object array](#object-array)                                          | 47                   |
-| [bytes* array](#bytes-array)                                           | 48                   |
-| [NaN](#booleans-null-nan-infinity-and-negative-infinity)               | 49                   |
-| [infinity](#booleans-null-nan-infinity-and-negative-infinity)          | 50                   |
-| [negative infinity](#booleans-null-nan-infinity-and-negative-infinity) | 51                   |
+| [speedy string array](#speedy-string-array)                            | 29                   |
+| [resizing integer array](#resizing-integer-array)                      | 30                   |
+| [negative resizing integer array](#resizing-integer-array)             | 31                   |
+| [unsigned 8-bit integer array](#defined-integer-array)                 | 32                   |
+| [unsigned 16-bit integer array](#defined-integer-array)                | 33                   |
+| [unsigned 24-bit integer array](#defined-integer-array)                | 34                   |
+| [unsigned 32-bit integer array](#defined-integer-array)                | 35                   |
+| [unsigned 64-bit integer array](#defined-integer-array)                | 36                   |
+| [negative 8-bit integer array](#defined-integer-array)                 | 37                   |
+| [negative 16-bit integer array](#defined-integer-array)                | 38                   |
+| [negative 24-bit integer array](#defined-integer-array)                | 39                   |
+| [negative 32-bit integer array](#defined-integer-array)                | 40                   |
+| [negative 64-bit integer array](#defined-integer-array)                | 41                   |
+| [signed 8-bit integer array](#defined-integer-array)                   | 42                   |
+| [signed 32-bit integer array](#defined-integer-array)                  | 43                   |
+| [signed 64-bit integer array](#defined-integer-array)                  | 44                   |
+| [big integer array](#big-integer-array)                                | 45                   |
+| [negative big integer array](#big-integer-array)                       | 46                   |
+| [decimal array](#decimal-array)                                        | 47                   |
+| [object array](#object-array)                                          | 48                   |
+| [bytes* array](#bytes-array)                                           | 49                   |
+| [NaN](#booleans-null-nan-infinity-and-negative-infinity)               | 50                   |
+| [infinity](#booleans-null-nan-infinity-and-negative-infinity)          | 51                   |
+| [negative infinity](#booleans-null-nan-infinity-and-negative-infinity) | 52                   |
 | [singular compressed string**](#singular-compressed-string)            | 255                  |
 
 *JSONZ can optionally support bytes. Bytes cannot be parsed into JSON and should be stored using the appropriate object within the language your implementation uses. Bytes functionality should be disabled by default, as trying to convert a JSONZ file containing bytes into a JSON file will result in an error.
 
 **Only to be used in the context where a string is a root object. Should be rejected if used in a normal keymap.
 
-**The data type of a key is stored as an 8-bit unsigned integer with a pre-defined code**. The existence of only 52 data types out of a possible 255 makes it very easy for someone to create their own custom data types within an implementation of JSONZ, and I'd recommend making it trivial to do this in your implementation.
+**The data type of a key is stored as an 8-bit unsigned integer with a pre-defined code**. The existence of only 53 data types out of a possible 255 makes it very easy for someone to create their own custom data types within an implementation of JSONZ, and I'd recommend making it trivial to do this in your implementation.
 
 ### Booleans, null, NaN, infinity and negative infinity
 
@@ -233,25 +247,23 @@ JSON allows for integers of infinite size. There is no reasonable way we can do 
 
 A big integer **starts with a resizing integer**. This represents **the number of bytes tha the integer takes up**. This is then followed by the **unsigned integer containing the value**.
 
-Fun fact: the maximum value of a big integer has more than a centillion centillion digits. The repetition is intended.
-
 ### Decimals
 
 **JSONZ v1 uses strings to store decimal numbers** as this seems to be the most effective way to store a decimal with infinite precision at this time. This will most likely be one of the first things to be optimised at a later date. **Decimals are stored as a string ID**, the same as strings are.
 
 ### Objects
 
-An object **begins with the object's size in bytes** (so it can be skipped when parsing). This is then **followed by the object's key map**.
+An object **begins with the object's size in bytes, stored as an unsigned 64-bit integer** (so it can be skipped when parsing). This is then **followed by the object's key map**.
 
 ### Bytes
 
 JSONZ can **optionally** support bytes. **Bytes cannot be parsed into JSON** and should be stored using the appropriate object within the language your implementation uses. **Bytes functionality should be disabled by default**, as trying to convert a JSONZ file containing bytes into a JSON file will result in an error.
 
-A bytes object is first stored by **first using a resizing integer to specify its size in bytes, followed by the bytes themselves**. 
+A bytes object is first stored by **first using a signed resizing integer to specify its size in bytes, followed by the bytes themselves**. Similarly to strings, a negative size represents bytes that have been Brotli compressed.
 
 ### Multi-type arrays
 
-A multi-type array is stored by first using an **unsigned 64-bit integer representing its size in bytes**. It is then **followed by an index map**. An index map is similar in structure to a key map with one key difference: **string IDs representing keys are omitted**. A multi-type array is structured by the data types and bytes of the data inside it. It is parsed sequentially: the first piece of data is index 0, and so on until the size specified in bytes has been reached. **It is important that your implementation respects the size in bytes specified** and raises an index error when it is exceeded, otherwise you could end up returning garbage data for high indexes.
+A multi-type array is stored by first using a **unsigned 64-bit integer representing its size in bytes**. It is then **followed by an index map**. An index map is similar in structure to a key map with one key difference: **string IDs representing keys are omitted**. A multi-type array is structured by the data types and bytes of the data inside it. It is parsed sequentially: the first piece of data is index 0, and so on until the size specified in bytes has been reached. **It is important that your implementation respects the size in bytes specified** and raises an index error when it is exceeded, otherwise you could end up returning garbage data for high indexes.
 
 ### Defined type arrays
 
@@ -273,7 +285,11 @@ A null array is **a resizing integer specifying its length (the number of null o
 
 ### String array
 
-A string array **begins with the length of the array in bytes as an unsigned 64-bit integer, followed by sequential resizing integers representing string IDs**. Note that the size of the array in bytes is the amount of space that the string IDs take to store, not the size of the strings themselves.
+A string array **begins with the length of the array in bytes as a resizing integer, followed by sequential resizing integers representing string IDs**. Note that the size of the array in bytes is the amount of space that the string IDs take to store, not the size of the strings themselves.
+
+### Speedy string array
+
+A speedy string array is a unique type of array designed to allow the retreival of a string from a large array of strings in O(1) time (compared to the O(n) time of a string array, where the consecutive resizing integers mean all prior indexes must be read before your target string ID can be read). A speedy string array **begins with the number of strings in the array as a resizing integer, followed by unsigned 32-bit integers representing string IDs**.
 
 ### Resizing integer array
 
@@ -325,6 +341,8 @@ def from_ri(byte_stream):
   return int.from_bytes(byte_stream.read(size), "little")
 ```
 
+It is possible to achieve higher storage density using bit manipulation. However, I believe this implementation is a good compromise between code complexity, computation time and output size.
+
 ### Writing a resizing integer
 
 1. Let the integer you would like to convert be $i$.
@@ -358,7 +376,7 @@ def to_ri(i):
 4. For each file corresponding to a hash in the JZ metadata, in the order the hashes are written:
     - Parse the JZS metadata
     - Read at least the number of strings that are used as keys (specified in the metadata), read the values of these strings from the string data and store them in memory with their associated string IDs
-    - Start assigning string IDs from 1 and assign them sequentially. For example, if the first JZS file has 102 strings, then the first string in the second JZS file is string ID 103
+    - Start assigning string IDs from 0 and assign them sequentially. For example, if the first JZS file has 102 strings, then the first string in the second JZS file is string ID 103
 
 (Note: one flaw of this implementation is that every time you update a JZS file, you have to update the associated hash in every JZ file that references that JZS file. To address this flaw, an implementation may allow you to force the loading of a JZS file that is not specified in the JZ file metadata. This removes the requirement to rehash but also means it is your responsibility to store which JZS files are needed for a JZ file to be opened and in what order.)
 
@@ -373,21 +391,32 @@ def to_ri(i):
 
 ### Writing a JZS file
 
-(Note: It is recommended that you do not immediately overwrite a JZS file. If you wish to update a file, first create a temporary file to work in, then when closing the file delete the original and rename the temporary file to make it permanent. I recommend this because string compression is an expensive task, and using this method you can simply copy the bytes of already compressed strings instead of compressing them again.)
+(Note: It is recommended that you do not immediately overwrite a JZS file. If you wish to update a file, first create a temporary file to work in, then when closing the file delete the original and rename the temporary file to make it permanent. I recommend this because string compression is an expensive task, and using this method you can simply copy the bytes of already compressed strings instead of compressing them again. Your implementation could even have an append method, for quickly adding string without massive recalculation, depending on the context of your implementation.)
 
 1. Start with two lists of strings you'd like to store, usually strings that are repeated across a number of files. One list, the key list, contains strings that are used as keys. The other, the value list, contains strings that are not used as keys.
 2. To your output file, write an 8-bit unsigned integer with a value of the version number (1).
-3. Write the number of strings in the list as an unsigned 64-bit integer.
-4. Write the number of strings in the key list as an unsigned 64-bit integer.
-5. Write 8 empty bytes, you'll overwrite these later.
-6. Sort the key list by the number of times each string appears in the associated JZ file, in descending order so the most frequently appearing string is written first. Repeat this for the value list.
-7. Write the first string in the key list to the file. At this point you may choose to compress it using the Brotli algorithm, or leave it uncompressed.
-8. In a new list, called the sizes list, store the size in bytes of the string you just wrote to the file (after compression, if you compressed it). If you compressed the string, store the value as a negative: a string that is 727 bytes after compression would be stored as -727 in the sizes list.
-9. Repeat steps 7-8 for the rest of the strings in the key list.
-10. Repeat steps 7-9 for the strings in the value list. You may keep adding to the same sizes list.
-11. Write each value in the sizes list in order as a signed resizing integer. To do this, first calculate the logarithm base 2 of the number. Convert the result to bytes by dividing by 8, adding 1 and converting to an integer. Write the result as an unsigned 8-bit integer (using 0 as the value if the calculation resulted in an error). Then, convert the size into a signed integer, with a size in bytes equal to the result of the previous calculation, and write that to the file. Repeat for every size.
-12. For each size in the list, calculate its absolute value (or "positive version": 727 becomes 727 and -727 become 727). Then, sum all the results.
-13. In the file, seek to the 18th byte (probably seeking to 17 in your language). Then, write the sum as an unsigned 64-bit integer before closing the file.
+3. Write the byte representing the mode of operation for the string map.
+4. Write the number of strings in the list as an unsigned 64-bit integer.
+5. Write the number of strings in the key list as an unsigned 64-bit integer.
+6. Write 8 empty bytes, you'll overwrite these later.
+7. Sort the key list by the number of times each string appears in the associated JZ file, in descending order so the most frequently appearing string is written first. Repeat this for the value list.
+8. Write the first string in the key list to the file. At this point you may choose to compress it using the Brotli compression algorithm, or leave it uncompressed.
+9. In a new list, called the sizes list, store the size in bytes of the string you just wrote to the file (after compression if applicable). If you compressed the string, store the value as a negative: a string that is 727 bytes after compression would be stored as -727 in the sizes list.
+10. Repeat steps 7-8 for the rest of the strings in the key list.
+11. Repeat steps 7-9 for the strings in the value list. You may keep adding to the same sizes list.
+
+If using mode of operation 0 (compressed mode):
+
+12. Write each value in the sizes list in order as a signed resizing integer. To do this, first calculate the logarithm base 2 of the number. Convert the result to bytes by dividing by 8, adding 1 and converting to an integer. Write the result as an unsigned 8-bit integer (using 0 as the value if the calculation resulted in an error). Then, convert the size into a signed integer, with a size in bytes equal to the result of the previous calculation, and write that to the file. Repeat for every size.
+
+If using the mode of operation 1 (uncompressed mode):
+
+12. Create a counter starting at 0. For each value in the sizes list, first write the value as a signed 64-bit integer. Then, write the value of the counter as an unsigned 64-bit integer. Finally, add the absolute value of the size to the counter (after writing the counter's value).
+
+Continuing, regardless of mode of operation:
+
+13. For each size in the list, calculate its absolute value (or "positive version": 727 becomes 727 and -727 become 727). Then, sum all the results.
+14. In the file, seek to the 19th byte (probably seeking to 18 in your language). Then, write the sum as an unsigned 64-bit integer before closing the file.
 
 ### Determining the data type of a value
 
@@ -446,43 +475,25 @@ This section does not cover: strings, decimals, multi-type arrays, object arrays
 3. Write to the file the "string" data type byte if the data is uncompressed, or the "singular compressed string" data type byte if the data is uncompressed.
 4. Write the UTF-8 encoded (and compressed if specified) string data to the file.
 
-### Writing a JZ file if the root object is not an object - string arrays and decimal arrays
+### Writing a JZ file if the root object is not an object - string arrays, speed string arrays and decimal arrays
 
 1. Start with the array you would like to write.
 2. Write 1 as an unsigned 8-bit integer, the version number, to the output file. Write the data type byte of the root object.
-3. Write 32 empty bytes (filled with 0s) to leave space for the metadata.
-4. Write the MD5 hashes of any JZS files being used, in the order they should be loaded.
-5. Create a list of unique strings, ordered by frequency in descending order.
-6. Create a second list, this will be called the "string sizes list".
-7. For each string in the list:
-- Calculate if you would like to store the string as compressed or uncompressed.
-- Calculate the size of the output string. If the string is compressed, store this number as negative (an uncompressed 727 byte string would be stored as 727 and a compressed 727 byte string would be stored as -727). Append this value to the string sizes list.
-- Write the string to the file.
-8. For each size in the string sizes list, write the size to the file as a signed resizing integer. This is identical to [writing a resizing integer](#writing-a-resizing-integer), except that in step 5 you instead write the number in signed little-endian form.
+3. Write the byte representing the mode of operation for the string map.
+4. Write 32 empty bytes (filled with 0s) to leave space for the metadata.
+5. Write an unsigned 64-bit integer representing the number JZS files being used, and then write the hashes in the order they should be loaded.
+6. Follow steps 7-12 of [Writing a JZS file](#writing-a-jzs-file) to write the string data and string map, but modified as follows. During step 12, record the number of bytes written to the file, known as the string map size. Complete step 13 to get a value known as the string data size. After writing the string map and string data, seek to the 4th byte (likely 3 in your language). Then, write the length of the key list as an unsigned 64-bit integer. Write the string data size as a 64-bit unsigned integer. Write the size of the string map size as a 64-bit unsigned integer. Finally, seek back to the end of the file.
 9. Write 8 empty bytes. This is where you will write the size of the array later.
-10. For each string in the array, write its string ID as a resizing integer. String IDs start counting from 1 (or, if a JZS was loaded, the first available integer) for the first string you wrote, and increase sequentially for each string written after that.
+10. For each string in the array, write its string ID as a resizing integer. String IDs start counting from 0 (or, if a JZS was loaded, the first available integer) for the first string you wrote, and increase sequentially for each string written after that.
 11. Write the size of the array in the designated location.
 12. Fill in the 32 empty bytes from earlier with the appropriate metadata.
 
 ### Writing a JZ file if the root object is a object, object array or multi-type array
 
 1. Start with the array or object you would like to write.
-2. Write 1 as an unsigned 8-bit integer, the version number, to the output file. Write the data type byte of the root object.
+2. Write 1 as an unsigned 8-bit integer, the version number, to the output file. Write the data type byte of the root object. Write the byte representing the mode of operation for the string map.
 3. Write 32 empty bytes (filled with 0s) to leave space for the metadata.
-4. Write the MD5 hashes of any JZS files being used, in the order they should be loaded.
-5. Create a list of unique strings used as keys, ordered by frequency in descending order.
-6. Create a second list, this will be called the "key string sizes list".
-7. For each string in the list:
-- Calculate if you would like to store the string as compressed or uncompressed.
-- Calculate the size of the output string. If the string is compressed, store this number as negative (an uncompressed 727 byte string would be stored as 727 and a compressed 727 byte string would be stored as -727). Append this value to the key string sizes list.
-- Write the string to the file.
-8. Create a list of unique strings not used as keys, ordered by frequency in descending order.
-9. Create a second list, this will be called the "non-key string sizes list".
-10. For each string in the list:
-- Calculate if you would like to store the string as compressed or uncompressed.
-- Calculate the size of the output string. If the string is compressed, store this number as negative (an uncompressed 727 byte string would be stored as 727 and a compressed 727 byte string would be stored as -727). Append this value to the non-key string sizes list.
-- Write the string to the file.
-11. For each size in the key string sizes list, write the size to the file as a signed resizing integer. This is identical to [writing a resizing integer](#writing-a-resizing-integer), except that in step 5 you instead write the number in signed little-endian form.
-12. Repeat step 11 but for the strings in the non-key string sizes list.
-13. Write the data for the array or object. This is usually a multi-step process involving constructing an key map or index map using different types, depending on your data. See [Determining the data type of a value](#determining-the-data-type-of-a-value) and [Key map](#key-map).
-14. Fill in the 32 empty bytes from earlier with the appropriate metadata.
+4. Write an unsigned 64-bit integer representing the number JZS files being used, and then write the hashes in the order they should be loaded.
+5. Follow steps 7-12 of [Writing a JZS file](#writing-a-jzs-file) to write the string data and string map, but modified as follows. During step 12, record the number of bytes written to the file, known as the string map size. Complete step 13 to get a value known as the string data size. After writing the string map and string data, seek to the 4th byte (likely 3 in your language). Then, write the length of the key list as an unsigned 64-bit integer. Write the string data size as a 64-bit unsigned integer. Write the size of the string map size as a 64-bit unsigned integer. Finally, seek back to the end of the file.
+6. Write the data for the array or object. This is usually a multi-step process involving constructing a key map or index map using different types, depending on your data. See [Determining the data type of a value](#determining-the-data-type-of-a-value) and [Key map](#key-map).
+7. Fill in the 32 empty bytes from earlier with the appropriate metadata.
