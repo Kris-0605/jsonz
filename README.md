@@ -136,9 +136,9 @@ JSON supports the following data types: string, number, object, array, boolean, 
 
 | JSONZ data type                                                        | Data type byte value |
 | ---------------------------------------------------------------------- | -------------------- |
-| [boolean true](#booleans-null-nan-infinity-and-negative-infinity)      | 1                    |
-| [boolean false](#booleans-null-nan-infinity-and-negative-infinity)     | 2                    |
-| [null](#booleans-null-nan-infinity-and-negative-infinity)              | 3                    |
+| [boolean true](#booleans-null-nan-and-infinity)                        | 1                    |
+| [boolean false](#booleans-null-nan-and-infinity)                       | 2                    |
+| [null](#booleans-null-nan-and-infinity)                                | 3                    |
 | [string](#strings)                                                     | 4                    |
 | [resizing integer](#a-note-on-integers)                                | 5                    |
 | [negative resizing integer](#a-note-on-integers)                       | 6                    |
@@ -185,18 +185,19 @@ JSON supports the following data types: string, number, object, array, boolean, 
 | [decimal array](#decimal-array)                                        | 47                   |
 | [object array](#object-array)                                          | 48                   |
 | [bytes* array](#bytes-array)                                           | 49                   |
-| [NaN](#booleans-null-nan-infinity-and-negative-infinity)               | 50                   |
-| [infinity](#booleans-null-nan-infinity-and-negative-infinity)          | 51                   |
-| [negative infinity](#booleans-null-nan-infinity-and-negative-infinity) | 52                   |
+| [NaN](#booleans-null-nan-and-infinity)                                 | 50                   |
+| [negative NaN](#booleans-null-nan-and-infinity)                        | 51                   |
+| [infinity](#booleans-null-nan-and-infinity)                            | 52                   |
+| [negative infinity](#booleans-null-nan-and-infinity)                   | 53                   |
 | [singular compressed string**](#singular-compressed-string)            | 255                  |
 
 *JSONZ can optionally support bytes. Bytes cannot be parsed into JSON and should be stored using the appropriate object within the language your implementation uses. Bytes functionality should be disabled by default, as trying to convert a JSONZ file containing bytes into a JSON file will result in an error.
 
 **Only to be used in the context where a string is a root object. Should be rejected if used in a normal keymap.
 
-**The data type of a key is stored as an 8-bit unsigned integer with a pre-defined code**. The existence of only 53 data types out of a possible 255 makes it very easy for someone to create their own custom data types within an implementation of JSONZ, and I'd recommend making it trivial to do this in your implementation.
+**The data type of a key is stored as an 8-bit unsigned integer with a pre-defined code**. The existence of only 54 data types out of a possible 255 makes it very easy for someone to create their own custom data types within an implementation of JSONZ, and I'd recommend making it trivial to do this in your implementation.
 
-### Booleans, null, NaN, infinity and negative infinity
+### Booleans, null, NaN and infinity
 
 **The value is implied from the data type itself**.
 
@@ -204,6 +205,7 @@ JSON supports the following data types: string, number, object, array, boolean, 
 - If the data type is "boolean false", then the value is false.
 - If the data type is "null", then the value is null.
 - If the data type is NaN, then the value is NaN.
+- If the data type is negative NaN, then the value is negative NaN.
 - If the data type is infinity, then the value is infinity.
 - If the data type is negative infinity, then the value is negative infinity.
 
@@ -422,9 +424,9 @@ Continuing, regardless of mode of operation:
 
 First, determine the JSON data type, then follow the relevant instructions.
 
-#### Booleans, null, NaN, infinity and negative infinity
+#### Booleans, null, NaN and infinity
 
-The data type stores the value. So, for true use [boolean true](#booleans-null-nan-infinity-and-negative-infinity), false use [boolean false](#booleans-null-nan-infinity-and-negative-infinity), null use [null](#booleans-null-nan-infinity-and-negative-infinity), NaN use [NaN](#booleans-null-nan-infinity-and-negative-infinity), infinity use [infinity](#booleans-null-nan-infinity-and-negative-infinity) and negative infinity use [negative infinity](#booleans-null-nan-infinity-and-negative-infinity).
+[The data type stores the value.](#booleans-null-nan-and-infinity)
 
 #### String
 
