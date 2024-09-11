@@ -271,7 +271,7 @@ A multi-type array is stored by first using a **unsigned 64-bit integer represen
 
 Defined type arrays are an efficient way of storing arrays that contain only a single type of data. Data type bytes for the objects inside the array are omitted and depending on the type certain optimisations can be used.
 
-Note: You'll notice that many arrays use unsigned 64-bit integers to store the size of the array, but a defined integer array uses a resizing integer. A resizing integer is used for a defined integer array because its size can be calculated using its length, and a resizing integer allows for a larger maximum size. However, in other situations, the size of the array is not known until after the array is written/generated, so an exact size must be used so that an implementation can leave an empty space for the size, write the array, then fill in the size later.
+Note: You'll notice that many arrays use an unsigned 64-bit integers to store the size of the array, but others use a resizing integer. A 64-bit integer is used to store the size of an array when the final size of that array is not know before writing, so that an empty space may be left to fill in this data after the array has been written. If the size of an array can be calculated before the array is written, such as using the array's length, then a resizing integer is preferable due to its larger maximum size.
 
 #### Boolean array
 
@@ -287,7 +287,7 @@ A null array is **a resizing integer specifying its length (the number of null o
 
 ### String array
 
-A string array **begins with the length of the array in bytes as a resizing integer, followed by sequential resizing integers representing string IDs**. Note that the size of the array in bytes is the amount of space that the string IDs take to store, not the size of the strings themselves.
+A string array **begins with the length of the array in bytes as an unsigned 64-bit integer, followed by sequential resizing integers representing string IDs**. Note that the size of the array in bytes is the amount of space that the string IDs take to store, not the size of the strings themselves.
 
 ### Speedy string array
 
@@ -301,7 +301,7 @@ Reading a resizing integer array is O(n) because you must parse all integers 0 t
 
 ### Defined integer array
 
-A defined integer array **begins with the number of integer objects in the array, followed by the data for the integers**.
+A defined integer array **begins with the number of integer objects in the array as a resizing integer, followed by the data for the integers**.
 
 Reading a defined integer array is skippable and O(1) to access because an index can be multiplied by the size of an integer to calculate its position.
 
@@ -315,7 +315,7 @@ Structured the **same as a [string array](#string-array)**.
 
 ### Object array
 
-An object array **begins with a resizing integer representing the size of the array in bytes**. This is then **followed by the data for the objects**.
+An object array **begins with a unsigned 64-bit integer representing the size of the array in bytes**. This is then **followed by the data for the objects**.
 
 ### Bytes array
 
